@@ -20,6 +20,9 @@
 		A10D1E6414D9C45700587840 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10D1E4514D9C45600587840 /* Foundation.framework */; };
 		A10D1E6C14D9C45700587840 /* InfoPlist.strings in Resources */ = {isa = PBXBuildFile; fileRef = A10D1E6A14D9C45700587840 /* InfoPlist.strings */; };
 		A10D1E6F14D9C45700587840 /* singleViewGLKitCubeTests.m in Sources */ = {isa = PBXBuildFile; fileRef = A10D1E6E14D9C45700587840 /* singleViewGLKitCubeTests.m */; };
+		A10D1E7914D9C74100587840 /* OpenGLES.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10D1E7814D9C74100587840 /* OpenGLES.framework */; };
+		A10D1E7C14D9C76100587840 /* GLKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10D1E7A14D9C76100587840 /* GLKit.framework */; };
+		A10D1E7D14D9C76100587840 /* QuartzCore.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = A10D1E7B14D9C76100587840 /* QuartzCore.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -37,21 +40,24 @@
 		A10D1E4314D9C45600587840 /* UIKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = UIKit.framework; path = System/Library/Frameworks/UIKit.framework; sourceTree = SDKROOT; };
 		A10D1E4514D9C45600587840 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = System/Library/Frameworks/Foundation.framework; sourceTree = SDKROOT; };
 		A10D1E4714D9C45600587840 /* CoreGraphics.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreGraphics.framework; path = System/Library/Frameworks/CoreGraphics.framework; sourceTree = SDKROOT; };
-		A10D1E4B14D9C45600587840 /* singleViewGLKitCube-Info.plist */ = {isa = PBXFileReference; path = "singleViewGLKitCube-Info.plist"; sourceTree = "<group>"; };
+		A10D1E4B14D9C45600587840 /* singleViewGLKitCube-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "singleViewGLKitCube-Info.plist"; sourceTree = "<group>"; };
 		A10D1E4D14D9C45600587840 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
 		A10D1E4F14D9C45600587840 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		A10D1E5114D9C45600587840 /* singleViewGLKitCube-Prefix.pch */ = {isa = PBXFileReference; path = "singleViewGLKitCube-Prefix.pch"; sourceTree = "<group>"; };
-		A10D1E5214D9C45600587840 /* AppDelegate.h */ = {isa = PBXFileReference; path = AppDelegate.h; sourceTree = "<group>"; };
+		A10D1E5114D9C45600587840 /* singleViewGLKitCube-Prefix.pch */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "singleViewGLKitCube-Prefix.pch"; sourceTree = "<group>"; };
+		A10D1E5214D9C45600587840 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		A10D1E5314D9C45600587840 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		A10D1E5614D9C45600587840 /* en */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = en; path = en.lproj/MainStoryboard.storyboard; sourceTree = "<group>"; };
-		A10D1E5814D9C45600587840 /* ViewController.h */ = {isa = PBXFileReference; path = ViewController.h; sourceTree = "<group>"; };
+		A10D1E5814D9C45600587840 /* ViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = ViewController.h; sourceTree = "<group>"; };
 		A10D1E5914D9C45600587840 /* ViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = ViewController.m; sourceTree = "<group>"; };
 		A10D1E6014D9C45700587840 /* singleViewGLKitCubeTests.octest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = singleViewGLKitCubeTests.octest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A10D1E6114D9C45700587840 /* SenTestingKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = SenTestingKit.framework; path = Library/Frameworks/SenTestingKit.framework; sourceTree = DEVELOPER_DIR; };
-		A10D1E6914D9C45700587840 /* singleViewGLKitCubeTests-Info.plist */ = {isa = PBXFileReference; path = "singleViewGLKitCubeTests-Info.plist"; sourceTree = "<group>"; };
+		A10D1E6914D9C45700587840 /* singleViewGLKitCubeTests-Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = "singleViewGLKitCubeTests-Info.plist"; sourceTree = "<group>"; };
 		A10D1E6B14D9C45700587840 /* en */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = en; path = en.lproj/InfoPlist.strings; sourceTree = "<group>"; };
-		A10D1E6D14D9C45700587840 /* singleViewGLKitCubeTests.h */ = {isa = PBXFileReference; path = singleViewGLKitCubeTests.h; sourceTree = "<group>"; };
+		A10D1E6D14D9C45700587840 /* singleViewGLKitCubeTests.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = singleViewGLKitCubeTests.h; sourceTree = "<group>"; };
 		A10D1E6E14D9C45700587840 /* singleViewGLKitCubeTests.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = singleViewGLKitCubeTests.m; sourceTree = "<group>"; };
+		A10D1E7814D9C74100587840 /* OpenGLES.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = OpenGLES.framework; path = System/Library/Frameworks/OpenGLES.framework; sourceTree = SDKROOT; };
+		A10D1E7A14D9C76100587840 /* GLKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = GLKit.framework; path = System/Library/Frameworks/GLKit.framework; sourceTree = SDKROOT; };
+		A10D1E7B14D9C76100587840 /* QuartzCore.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuartzCore.framework; path = System/Library/Frameworks/QuartzCore.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -59,6 +65,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10D1E7C14D9C76100587840 /* GLKit.framework in Frameworks */,
+				A10D1E7D14D9C76100587840 /* QuartzCore.framework in Frameworks */,
+				A10D1E7914D9C74100587840 /* OpenGLES.framework in Frameworks */,
 				A10D1E4414D9C45600587840 /* UIKit.framework in Frameworks */,
 				A10D1E4614D9C45600587840 /* Foundation.framework in Frameworks */,
 				A10D1E4814D9C45600587840 /* CoreGraphics.framework in Frameworks */,
@@ -100,6 +109,9 @@
 		A10D1E4214D9C45600587840 /* Frameworks */ = {
 			isa = PBXGroup;
 			children = (
+				A10D1E7A14D9C76100587840 /* GLKit.framework */,
+				A10D1E7B14D9C76100587840 /* QuartzCore.framework */,
+				A10D1E7814D9C74100587840 /* OpenGLES.framework */,
 				A10D1E4314D9C45600587840 /* UIKit.framework */,
 				A10D1E4514D9C45600587840 /* Foundation.framework */,
 				A10D1E4714D9C45600587840 /* CoreGraphics.framework */,
