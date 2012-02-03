@@ -9,13 +9,8 @@
 #import "ViewController.h"
 #import <GLKit/GLKit.h>
 #import <QuartzCore/QuartzCore.h>
+#import <objc/runtime.h>
 
-@interface NSArray (stuff) {
-}
-//JRW: first or firstObjectPassingTest ?
-- (id)first: (BOOL (^)(id obj))block;
-- (NSArray *)where: (BOOL (^)(id obj))block;
-@end
 @implementation NSArray (stuff)
 
 - (id)first: (BOOL (^)(id obj))block{
@@ -36,35 +31,41 @@
 }
 @end
 
-@interface Delegate : NSObject {
-    void (^_callback)(id sender);
-    id _sender;
-}
--(void)invoke;
-@end
 
-@implementation Delegate
--(Delegate*)initWithCallback:(void(^)(id sender)) callback andSender:sender {
+
+@implementation FWrapper
+
+-(FWrapper*)initWithCallback:(void(^)(id)) block andSender:sender {
     if (self = [super init]) {
-        _callback = callback;
+        _callback = block;
         _sender = sender;
+    }
+    else{
+        DLog(@"couldn't init, something bad happened");
     }
     return self;
 }
--(void)invoke {
+-(void)invokeTheBlock {
     _callback(_sender);
 }
 @end
 
 @interface UIButton (stuff) {
 }
-- (void)addTarget:(void (^)(id sender))block forControlEvents:(UIControlEvents)controlEvents;
+- (void)addTarget:(void (^)(id))block forControlEvents:(UIControlEvents)controlEvents;
 @end
 @implementation UIButton (stuff)
-
+static const char * UIControlDDBlockActions = "unique";
 - (void)addTarget:(void (^)(id))block forControlEvents:(UIControlEvents)controlEvents {
-    Delegate *del = [[Delegate alloc] initWithCallback:block andSender:self];
-    [self addTarget:del action:@selector(invoke) forControlEvents:controlEvents];
+    NSMutableArray * blockActions = objc_getAssociatedObject(self, &UIControlDDBlockActions);
+    if (blockActions == nil) {
+        blockActions = [NSMutableArray array];
+        objc_setAssociatedObject(self, &UIControlDDBlockActions, blockActions, OBJC_ASSOCIATION_RETAIN);
+    }
+
+    id del = [[FWrapper alloc] initWithCallback:block andSender:self];
+    [blockActions addObject:del];
+    [self addTarget:del action:@selector(invokeTheBlock) forControlEvents:controlEvents];
 }
 @end
 @implementation ViewController
@@ -106,8 +107,13 @@ BOOL on;
     UIButton *go = [buttons objectAtIndex:0];
     UIButton *stop = [buttons objectAtIndex:1];
     //go addTarget:<#(id)#> action:<#(SEL)#> forControlEvents:<#(UIControlEvents)#>
-    [go addTarget:^(id _){ on=YES; } forControlEvents:UIControlEventTouchUpInside];
-    [stop addTarget:^(id _){ on=NO; } forControlEvents:UIControlEventTouchUpInside];
+    [go addTarget:^(id sender){ on=YES; } forControlEvents:UIControlEventTouchUpInside];
+    [stop addTarget:^(id sender){ on=NO; } forControlEvents:UIControlEventTouchUpInside];
+    
+    //[go addTarget:self action:@selector(goon) forControlEvents:UIControlEventTouchUpInside];
+}
+- (void)goon {
+    on=YES;
 }
 - (void)render:(CADisplayLink*)displayLink {
 
