@@ -70,6 +70,9 @@ static const char * UIControlDDBlockActions = "unique";
 @end
 @implementation ViewController
 
+@synthesize effect = _effect;
+@synthesize context = _context;
+
 - (void)didReceiveMemoryWarning
 {
     [super didReceiveMemoryWarning];
@@ -77,10 +80,48 @@ static const char * UIControlDDBlockActions = "unique";
 }
 
 #pragma mark - View lifecycle
-float _curRed;
-BOOL _increasing;
+
 GLKView * glkview;
 BOOL on;
+
+typedef struct {
+    float Position[3];
+    float Color[4];
+} Vertex;
+
+const Vertex Vertices[] = {
+    {{1, -1, 0}, {1, 0, 0, 1}},
+    {{1, 1, 0}, {0, 1, 0, 1}},
+    {{-1, 1, 0}, {0, 0, 1, 1}},
+    {{-1, -1, 0}, {0, 0, 0, 1}}
+};
+
+const GLubyte Indices[] = {
+    0, 1, 2,
+    2, 3, 0
+};
+
+GLuint _vertexBuffer;
+GLuint _indexBuffer;
+
+float _rotation;
+
+- (void) setupGL{
+    //JRW: probably not needed.
+    [EAGLContext setCurrentContext:glkview.context];
+    
+    self.effect = [[GLKBaseEffect alloc] init];
+    
+    glGenBuffers(1, &_vertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, _vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
+    
+    glGenBuffers(1, &_indexBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _indexBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Indices), Indices, GL_STATIC_DRAW);
+
+}
+
 - (void)viewDidLoad
 {
     [super viewDidLoad];
@@ -88,12 +129,18 @@ BOOL on;
     _increasing = YES;
     _curRed = 0.0;
     
+    self.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+
+    if (!self.context) {
+        NSLog(@"Failed to create ES context");
+    }
+    
     glkview = (GLKView*)[self.view.subviews //where subview class is GLKView
      first:^BOOL(id obj) {
          return [obj isKindOfClass:[GLKView class]];
      }];
     NSAssert(nil!= glkview, @"oh no!");
-    glkview.context = [[EAGLContext alloc] initWithAPI:kEAGLRenderingAPIOpenGLES2];
+
     //DLog(@"view frame:%@",[glkview frame]);
     glkview.delegate = self;
     glkview.enableSetNeedsDisplay = NO;
@@ -111,6 +158,7 @@ BOOL on;
     [stop addTarget:^(id sender){ on=NO; } forControlEvents:UIControlEventTouchUpInside];
     
     //[go addTarget:self action:@selector(goon) forControlEvents:UIControlEventTouchUpInside];
+    [self setupGL];
 }
 - (void)goon {
     on=YES;
@@ -119,11 +167,19 @@ BOOL on;
 
     [glkview display];
 }
+
+- (void)tearDownGL{
+    glDeleteBuffers(1, &_vertexBuffer);
+    glDeleteBuffers(1, &_indexBuffer);
+    
+    self.effect = nil;
+}
 - (void)viewDidUnload
 {
     [super viewDidUnload];
     // Release any retained subviews of the main view.
     // e.g. self.myOutlet = nil;
+    [self tearDownGL];
 }
 
 - (void)viewWillAppear:(BOOL)animated
@@ -153,7 +209,7 @@ BOOL on;
 }
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect{
-    if (!on) return;
+    //if (!on) return;
     if (_increasing) {
         _curRed += 0.01;
     } else {
@@ -168,7 +224,26 @@ BOOL on;
         _increasing = YES;
     }
     
-    glClearColor(_curRed, 0.0, 0.0, 1.0);
-    glClear(GL_COLOR_BUFFER_BIT);
+    //glClearColor(_curRed, 0.0, 0.0, 1.0);
+    //glClear(GL_COLOR_BUFFER_BIT);
+    
+    float aspect = fabsf(self.view.bounds.size.width / self.view.bounds.size.height);
+    GLKMatrix4 projectionMatrix = GLKMatrix4MakePerspective(GLKMathDegreesToRadians(65.0f), aspect, 4.0f, 10.0f);    
+    self.effect.transform.projectionMatrix = projectionMatrix;
+    
+    GLKMatrix4 modelViewMatrix = GLKMatrix4MakeTranslation(0.0f, 0.0f, -6.0f);   
+    _rotation += 90 * self.timeSinceLastUpdate;
+    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, GLKMathDegreesToRadians(_rotation), 0, 0, 1);
+    self.effect.transform.modelviewMatrix = modelViewMatrix;
+    
+    [self.effect prepareToDraw];
+    
+    glBindBuffer(GL_ARRAY_BUFFER, _vertexBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _indexBuffer);
+    
+    glEnableVertexAttribArray(GLKVertexAttribPosition);        
+    glVertexAttribPointer(GLKVertexAttribPosition, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, Position));
+    glEnableVertexAttribArray(GLKVertexAttribColor);
+    glVertexAttribPointer(GLKVertexAttribColor, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, Color));
 }
 @end

@@ -25,6 +25,12 @@
 -(void)invokeTheBlock;
 @end
 
-@interface ViewController : UIViewController<GLKViewDelegate>
+@interface ViewController : GLKViewController //UIViewController<GLKViewDelegate>
+{
+    float _curRed;
+    BOOL _increasing;
+}
+@property (strong, nonatomic) EAGLContext *context;
+@property (strong, nonatomic) GLKBaseEffect *effect;
 
 @end
