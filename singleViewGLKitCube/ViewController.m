@@ -81,7 +81,6 @@ static const char * UIControlDDBlockActions = "unique";
 
 #pragma mark - View lifecycle
 
-GLKView * glkview;
 BOOL on;
 
 typedef struct {
@@ -108,7 +107,7 @@ float _rotation;
 
 - (void) setupGL{
     //JRW: probably not needed.
-    [EAGLContext setCurrentContext:glkview.context];
+    [EAGLContext setCurrentContext:self.context];
     
     self.effect = [[GLKBaseEffect alloc] init];
     
@@ -135,37 +134,36 @@ float _rotation;
         NSLog(@"Failed to create ES context");
     }
     
-    glkview = (GLKView*)[self.view.subviews //where subview class is GLKView
+    GLKView *glkview = /*(GLKView*)[self.view.subviews //where subview class is GLKView
      first:^BOOL(id obj) {
          return [obj isKindOfClass:[GLKView class]];
      }];
-    NSAssert(nil!= glkview, @"oh no!");
-
-    //DLog(@"view frame:%@",[glkview frame]);
-    glkview.delegate = self;
+    NSAssert(nil!= glkview, @"oh no!");*/
+    (GLKView*)self.view;
+    glkview.context = self.context;
+    
+    /*glkview.delegate = self;
     glkview.enableSetNeedsDisplay = NO;
     CADisplayLink* displayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(render:)];
     [displayLink addToRunLoop:[NSRunLoop currentRunLoop] forMode:NSDefaultRunLoopMode];
+    */
     
     NSArray * buttons = 
     [self.view.subviews where:^BOOL(id obj) {
         return [obj isKindOfClass:[UIButton class]];
     }];
-    UIButton *go = [buttons objectAtIndex:0];
-    UIButton *stop = [buttons objectAtIndex:1];
-    //go addTarget:<#(id)#> action:<#(SEL)#> forControlEvents:<#(UIControlEvents)#>
-    [go addTarget:^(id sender){ on=YES; } forControlEvents:UIControlEventTouchUpInside];
-    [stop addTarget:^(id sender){ on=NO; } forControlEvents:UIControlEventTouchUpInside];
-    
+    if ([buttons count] >0) {
+        UIButton *go = [buttons objectAtIndex:0];
+        UIButton *stop = [buttons objectAtIndex:1];
+        //go addTarget:<#(id)#> action:<#(SEL)#> forControlEvents:<#(UIControlEvents)#>
+        [go addTarget:^(id sender){ self.paused=YES; } forControlEvents:UIControlEventTouchUpInside];
+        [stop addTarget:^(id sender){ self.paused=NO; } forControlEvents:UIControlEventTouchUpInside];
+    }
     //[go addTarget:self action:@selector(goon) forControlEvents:UIControlEventTouchUpInside];
     [self setupGL];
 }
 - (void)goon {
     on=YES;
-}
-- (void)render:(CADisplayLink*)displayLink {
-
-    [glkview display];
 }
 
 - (void)tearDownGL{
@@ -209,7 +207,16 @@ float _rotation;
 }
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect{
-    //if (!on) return;
+    glClearColor(_curRed, 0.0, 0.0, 1.0);
+    glClear(GL_COLOR_BUFFER_BIT);
+    
+    [self.effect prepareToDraw];
+    
+    glBindVertexArrayOES(_vertexBuffer);
+    glDrawElements(GL_TRIANGLES, sizeof(Indices)/sizeof(Indices[0]), GL_UNSIGNED_BYTE, 0);
+}
+-(void)update{
+
     if (_increasing) {
         _curRed += 0.01;
     } else {
@@ -224,8 +231,6 @@ float _rotation;
         _increasing = YES;
     }
     
-    //glClearColor(_curRed, 0.0, 0.0, 1.0);
-    //glClear(GL_COLOR_BUFFER_BIT);
     
     float aspect = fabsf(self.view.bounds.size.width / self.view.bounds.size.height);
     GLKMatrix4 projectionMatrix = GLKMatrix4MakePerspective(GLKMathDegreesToRadians(65.0f), aspect, 4.0f, 10.0f);    
@@ -235,8 +240,7 @@ float _rotation;
     _rotation += 90 * self.timeSinceLastUpdate;
     modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, GLKMathDegreesToRadians(_rotation), 0, 0, 1);
     self.effect.transform.modelviewMatrix = modelViewMatrix;
-    
-    [self.effect prepareToDraw];
+
     
     glBindBuffer(GL_ARRAY_BUFFER, _vertexBuffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _indexBuffer);
@@ -245,5 +249,12 @@ float _rotation;
     glVertexAttribPointer(GLKVertexAttribPosition, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, Position));
     glEnableVertexAttribArray(GLKVertexAttribColor);
     glVertexAttribPointer(GLKVertexAttribColor, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, Color));
+}
+-(void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event{
+    self.paused = !self.paused;
+    NSLog(@"timeSinceLastUpdate: %f", self.timeSinceLastUpdate);
+    NSLog(@"timeSinceLastDraw: %f", self.timeSinceLastDraw);
+    NSLog(@"timeSinceFirstResume: %f", self.timeSinceFirstResume);
+    NSLog(@"timeSinceLastResume: %f", self.timeSinceLastResume);
 }
 @end
