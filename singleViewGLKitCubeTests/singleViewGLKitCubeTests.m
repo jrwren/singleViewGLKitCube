@@ -49,7 +49,7 @@
 -(void)testFWrapper{
     __block NSObject *x = [[NSObject alloc]init];
     NSObject *y = [[NSObject alloc]init];
-    FWrapper *f = [[FWrapper alloc] initWithCallback:^(void){
+    FWrapper *f = [[FWrapper alloc] initWithCallback:^(id sender){
         x=y;
     } andSender:nil];
     [f invokeTheBlock];
@@ -58,7 +58,7 @@
 BOOL flag;
 -(void)test__blockMember{
     flag = NO;
-    FWrapper *f = [[FWrapper alloc] initWithCallback:^{
+    FWrapper *f = [[FWrapper alloc] initWithCallback:^(id sender){
         flag=YES;
     } andSender:nil];
     [f invokeTheBlock];
