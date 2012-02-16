@@ -11,9 +11,32 @@
 #import <QuartzCore/QuartzCore.h>
 #import <objc/runtime.h>
 
+#import "aiConfig.h"
 #import "assimp.h"
 #import "aiPostProcess.h"
 #import "aiScene.h"
+
+
+#define aisgl_min(x,y) (x<y?x:y)
+#define aisgl_max(x,y) (y>x?y:x)
+
+static void color4_to_float4(const struct aiColor4D *c, float f[4])
+{
+	f[0] = c->r;
+	f[1] = c->g;
+	f[2] = c->b;
+	f[3] = c->a;
+}
+
+static void set_float4(float f[4], float a, float b, float c, float d)
+{
+	f[0] = a;
+	f[1] = b;
+	f[2] = c;
+	f[3] = d;
+}
+
+
 
 @implementation NSArray (stuff)
 
@@ -87,31 +110,6 @@ static const char * UIControlDDBlockActions = "unique";
 
 BOOL on;
 
-typedef struct {
-    float Position[3];
-    float Color[4];
-} Vertex;
-
-Vertex Vertices[] = {
-    {{1, -1, 0}, {1, 0, 0, 1}},
-    {{1, 1, 0}, {0, 1, 0, 1}},
-    {{-1, 1, 0}, {0, 0, 1, 1}},
-    {{-1, -1, 0}, {0, 0, 0, 1}},
-    {{1, -1, 1}, {1, 0, 1, 1}},
-    {{1, 1, 1}, {1, 1, 0, 1}},
-    {{-1, 1, 1}, {0, 1, 1, 1}},
-    {{-1, -1, 1}, {1, 1, 1, 1}},
-    
-};
-
-const GLubyte Indices[] = {
-    0, 1, 2,
-    2, 3, 4,5,6,7,0
-};
-
-GLuint _vertexBuffer;
-GLuint _indexBuffer;
-
 float _rotation;
 
 - (void) setupGL{
@@ -122,246 +120,37 @@ float _rotation;
     
     self.effect = [[GLKBaseEffect alloc] init];
     
-    glGenBuffers(1, &_vertexBuffer);
-    glBindBuffer(GL_ARRAY_BUFFER, _vertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
-    
-    glGenBuffers(1, &_indexBuffer);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _indexBuffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Indices), Indices, GL_STATIC_DRAW);
-    
-    glEnableVertexAttribArray(GLKVertexAttribPosition);        
-    glVertexAttribPointer(GLKVertexAttribPosition, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, Position));
-    glEnableVertexAttribArray(GLKVertexAttribColor);
-    glVertexAttribPointer(GLKVertexAttribColor, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, Color));
-    
-    
 }
-
-// the global Assimp scene object
-const struct aiScene* scene = NULL;
-
-struct aiVector3D scene_min, scene_max, scene_center;
-
-// current rotation angle
-static float angle = 0.f;
-
-#define aisgl_min(x,y) (x<y?x:y)
-#define aisgl_max(x,y) (y>x?y:x)
-
-// ----------------------------------------------------------------------------
-void reshape(int width, int height)
-{
-	const double aspectRatio = (float) width / height, fieldOfView = 45.0;
-    
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-//	gluPerspective(fieldOfView, aspectRatio,
-//                   1.0, 1000.0);  /* Znear and Zfar */
-	glViewport(0, 0, width, height);
-}
-
-// ----------------------------------------------------------------------------
-void get_bounding_box_for_node (const struct aiNode* nd, 
-                                struct aiVector3D* min, 
-                                struct aiVector3D* max, 
-                                struct aiMatrix4x4* trafo
-                                ){
-	struct aiMatrix4x4 prev;
-	unsigned int n = 0, t;
-    
-	prev = *trafo;
-	aiMultiplyMatrix4(trafo,&nd->mTransformation);
-    
-	for (; n < nd->mNumMeshes; ++n) {
-		const struct aiMesh* mesh = scene->mMeshes[nd->mMeshes[n]];
-		for (t = 0; t < mesh->mNumVertices; ++t) {
-            
-			struct aiVector3D tmp = mesh->mVertices[t];
-			aiTransformVecByMatrix4(&tmp,trafo);
-            
-			min->x = aisgl_min(min->x,tmp.x);
-			min->y = aisgl_min(min->y,tmp.y);
-			min->z = aisgl_min(min->z,tmp.z);
-            
-			max->x = aisgl_max(max->x,tmp.x);
-			max->y = aisgl_max(max->y,tmp.y);
-			max->z = aisgl_max(max->z,tmp.z);
-		}
-	}
-    
-	for (n = 0; n < nd->mNumChildren; ++n) {
-		get_bounding_box_for_node(nd->mChildren[n],min,max,trafo);
-	}
-	*trafo = prev;
-}
-
-// ----------------------------------------------------------------------------
-void get_bounding_box (struct aiVector3D* min, struct aiVector3D* max)
-{
-	struct aiMatrix4x4 trafo;
-	aiIdentityMatrix4(&trafo);
-    
-	min->x = min->y = min->z =  1e10f;
-	max->x = max->y = max->z = -1e10f;
-	get_bounding_box_for_node(scene->mRootNode,min,max,&trafo);
-}
-
-// ----------------------------------------------------------------------------
-void color4_to_float4(const struct aiColor4D *c, float f[4])
-{
-	f[0] = c->r;
-	f[1] = c->g;
-	f[2] = c->b;
-	f[3] = c->a;
-}
-
-// ----------------------------------------------------------------------------
-void set_float4(float f[4], float a, float b, float c, float d)
-{
-	f[0] = a;
-	f[1] = b;
-	f[2] = c;
-	f[3] = d;
-}
-
-// ----------------------------------------------------------------------------
-void apply_material(const struct aiMaterial *mtl)
-{
-	float c[4];
-	int ret1, ret2;
-	struct aiColor4D diffuse;
-	struct aiColor4D specular;
-	struct aiColor4D ambient;
-	struct aiColor4D emission;
-	float shininess, strength;
-	int two_sided;
-	
-	uint max;
-    
-	set_float4(c, 0.8f, 0.8f, 0.8f, 1.0f);
-	if(AI_SUCCESS == aiGetMaterialColor(mtl, AI_MATKEY_COLOR_DIFFUSE, &diffuse))
-		color4_to_float4(&diffuse, c);
-	glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, c);
-    
-	set_float4(c, 0.0f, 0.0f, 0.0f, 1.0f);
-	if(AI_SUCCESS == aiGetMaterialColor(mtl, AI_MATKEY_COLOR_SPECULAR, &specular))
-		color4_to_float4(&specular, c);
-	glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, c);
-    
-	set_float4(c, 0.2f, 0.2f, 0.2f, 1.0f);
-	if(AI_SUCCESS == aiGetMaterialColor(mtl, AI_MATKEY_COLOR_AMBIENT, &ambient))
-		color4_to_float4(&ambient, c);
-	glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, c);
-    
-	set_float4(c, 0.0f, 0.0f, 0.0f, 1.0f);
-	if(AI_SUCCESS == aiGetMaterialColor(mtl, AI_MATKEY_COLOR_EMISSIVE, &emission))
-		color4_to_float4(&emission, c);
-	glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, c);
-    
-	max = 1;
-	ret1 = aiGetMaterialFloatArray(mtl, AI_MATKEY_SHININESS, &shininess, &max);
-	if(ret1 == AI_SUCCESS) {
-    	max = 1;
-    	ret2 = aiGetMaterialFloatArray(mtl, AI_MATKEY_SHININESS_STRENGTH, &strength, &max);
-		if(ret2 == AI_SUCCESS)
-			glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shininess * strength);
-        else
-        	glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, shininess);
-    }
-	else {
-		glMaterialf(GL_FRONT_AND_BACK, GL_SHININESS, 0.0f);
-		set_float4(c, 0.0f, 0.0f, 0.0f, 0.0f);
-		glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, c);
-	}
-    
-	max = 1;
-    //JRW: there is only GL_FILL in ES
-    /*
-	if(AI_SUCCESS == aiGetMaterialIntegerArray(mtl, AI_MATKEY_ENABLE_WIREFRAME, &wireframe, &max))
-		fill_mode = wireframe ? GL_LINE : GL_FILL;
-	else
-		fill_mode = GL_FILL;
-	glPolygonMode(GL_FRONT_AND_BACK, fill_mode);
-    */
-	max = 1;
-	if((AI_SUCCESS == aiGetMaterialIntegerArray(mtl, AI_MATKEY_TWOSIDED, &two_sided, &max)) && two_sided)
-		glDisable(GL_CULL_FACE);
-	else 
-		glEnable(GL_CULL_FACE);
-     
-}
-
-// see http://www.lighthouse3d.com/cg-topics/code-samples/importing-3d-models-with-assimp/
-
-// ----------------------------------------------------------------------------
-void recursive_render (const struct aiScene *sc, const struct aiNode* nd)
-{
-	unsigned int n = 0, t;
-	struct aiMatrix4x4 m = nd->mTransformation;
-    
-	// update transform
-	aiTransposeMatrix4(&m);
-	glPushMatrix();
-	glMultMatrixf((float*)&m);
-    
-	// draw all meshes assigned to this node
-	for (; n < nd->mNumMeshes; ++n) {
-		const struct aiMesh* mesh = scene->mMeshes[nd->mMeshes[n]];
-        
-		apply_material(sc->mMaterials[mesh->mMaterialIndex]);
-        
-		if(mesh->mNormals == NULL) {
-			glDisable(GL_LIGHTING);
-		} else {
-			glEnable(GL_LIGHTING);
-		}
-        NSMutableData *indices = [[NSMutableData alloc] init];
-		for (unsigned int t = 0; t < mesh->mNumFaces; ++t) {
-			const struct aiFace* face = &mesh->mFaces[t];
-            glVertexPointer(3, GL_FLOAT, 0, mesh->mVertices);
-            glNormalPointer(GL_FLOAT, 0, mesh->mNormals);
-            glTexCoordPointer(3, GL_FLOAT, 0, &mesh->mTextureCoords[0][0]);
-            //glVertexAttribPointer(uniformVariable[0], 3, GL_FLOAT, GL_FALSE, 0, mesh->mTangents);
-            //glVertexAttribPointer(uniformVariable[1], 3, GL_FLOAT, GL_FALSE, 0, mesh->mBitangents);
-            
-            
-                //indices.push_back(face->mIndices[0]);
-                //indices.push_back(face->mIndices[1]);
-                //indices.push_back(face->mIndices[2]);
-                [indices appendBytes:&(face->mIndices[0]) length:sizeof(int)];
-                [indices appendBytes:&(face->mIndices[1]) length:sizeof(int)];
-                [indices appendBytes:&(face->mIndices[2]) length:sizeof(int)];
-            
-            //glDrawElements(GL_TRIANGLES, indices.size(), GL_UNSIGNED_INT, &indices[0]);
-            glDrawElements(GL_TRIANGLES, indices.length, GL_UNSIGNED_INT, indices.bytes);
-            //indices.clear();
-            indices = [[NSMutableData alloc] init]; //jrw note: this is weird, will this leak or will ARC release correctly?
-		}
-        
-	}
-    
-	// draw all children
-	for (n = 0; n < nd->mNumChildren; ++n) {
-		recursive_render(sc, nd->mChildren[n]);
-	}
-    
-	glPopMatrix();
-}
-
 
 -(void) loadModel{
-    const char* dwarfx;
     NSString *filePath = [[NSBundle mainBundle] pathForResource:@"dwarf" ofType:@"x"];
-    dwarfx = [filePath UTF8String];
+    const char* dwarfx = [filePath UTF8String];
+    aiSetImportPropertyInteger(AI_CONFIG_PP_SBP_REMOVE, aiPrimitiveType_LINE | aiPrimitiveType_POINT );
+    
     //todo: prefer the c++ interface to the C interface (says assimp) use ASSIMP::Importer::ReadFile()
-    scene = aiImportFile(dwarfx, aiProcessPreset_TargetRealtime_MaxQuality);
+    _scene = (aiScene*)  aiImportFile(dwarfx, aiProcessPreset_TargetRealtime_MaxQuality| aiProcess_Triangulate | aiProcess_FlipUVs | aiProcess_PreTransformVertices | 0);
     	
-    if (scene) {
-     	get_bounding_box(&scene_min,&scene_max);
-     	scene_center.x = (scene_min.x + scene_max.x) / 2.0f;
-     	scene_center.y = (scene_min.y + scene_max.y) / 2.0f;
-     	scene_center.z = (scene_min.z + scene_max.z) / 2.0f;
+    if (_scene) {
+     	textureDictionary = [[NSMutableDictionary alloc] initWithCapacity:5];
+        
+        [self loadTexturesWithModelPath:[filePath stringByStandardizingPath]];
+        
+        [self getBoundingBoxWithMinVector:&scene_min maxVectr:&scene_max];
+        scene_center.x = (scene_min.x + scene_max.x) / 2.0f;
+        scene_center.y = (scene_min.y + scene_max.y) / 2.0f;
+        scene_center.z = (scene_min.z + scene_max.z) / 2.0f;
+        
+        // optional normalized scaling
+        normalizedScale = scene_max.x-scene_min.x;
+        normalizedScale = aisgl_max(scene_max.y - scene_min.y,normalizedScale);
+        normalizedScale = aisgl_max(scene_max.z - scene_min.z,normalizedScale);
+        normalizedScale = 1.f / normalizedScale;
+        
+        if(_scene->HasAnimations())
+            NSLog(@"scene has animations");
+        
+        [self createGLResources];
+
     }
 }
 
@@ -412,8 +201,6 @@ void recursive_render (const struct aiScene *sc, const struct aiNode* nd)
 }
 
 - (void)tearDownGL{
-    glDeleteBuffers(1, &_vertexBuffer);
-    glDeleteBuffers(1, &_indexBuffer);
     
     self.effect = nil;
 }
@@ -458,8 +245,6 @@ void recursive_render (const struct aiScene *sc, const struct aiNode* nd)
     [self.effect prepareToDraw];
         
 
-    //glDrawElements(GL_TRIANGLES, sizeof(Indices)/sizeof(Indices[0]), GL_UNSIGNED_BYTE, 0);
-
     
     DLog(@"zomg!");
 
@@ -468,12 +253,8 @@ void recursive_render (const struct aiScene *sc, const struct aiNode* nd)
     DLog(@"wtf!");
     if (_increasing) {
         _curRed += 0.01;
-        Vertices[0].Position[2] +=.11;
-        Vertices[0].Color[0] -= .01;
     } else {
         _curRed -= 0.01;
-        Vertices[0].Position[2] -= .11;
-        Vertices[0].Color[1] += .01;
     }
     if (_curRed >= 1.0) {
         _curRed = 1.0;
@@ -493,18 +274,8 @@ void recursive_render (const struct aiScene *sc, const struct aiNode* nd)
     _rotation += 90 * self.timeSinceLastUpdate;
     modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, GLKMathDegreesToRadians(_rotation), 0, 1, 1);
     self.effect.transform.modelviewMatrix = modelViewMatrix;
-
-    glBindBuffer(GL_ARRAY_BUFFER, _vertexBuffer);
-    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
-    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _indexBuffer);
-    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Indices), Indices, GL_STATIC_DRAW);
     
-    glEnableVertexAttribArray(GLKVertexAttribPosition);        
-    glVertexAttribPointer(GLKVertexAttribPosition, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, Position));
-    glEnableVertexAttribArray(GLKVertexAttribColor);
-    glVertexAttribPointer(GLKVertexAttribColor, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, Color));
-    
-    recursive_render(scene, scene->mRootNode);
+    [self drawMeshes];
 }
 -(void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event{
     self.paused = !self.paused;
@@ -513,5 +284,449 @@ void recursive_render (const struct aiScene *sc, const struct aiNode* nd)
     NSLog(@"timeSinceFirstResume: %f", self.timeSinceFirstResume);
     NSLog(@"timeSinceLastResume: %f", self.timeSinceLastResume);
 }
+
+
+
+// Inspired by LoadAsset() & CreateAssetData() from AssimpView D3D project
+- (void) createGLResources
+{
+    // create new mesh helpers for each mesh, will populate their data later.
+    modelMeshes = [[NSMutableArray alloc] initWithCapacity:_scene->mNumMeshes];
+    
+    // create OpenGL buffers and populate them based on each meshes pertinant info.
+    for (unsigned int i = 0; i < _scene->mNumMeshes; ++i)
+    {
+        NSLog(@"%u", i);
+        
+        // current mesh we are introspecting
+        const aiMesh* mesh = _scene->mMeshes[i];
+        
+        // the current meshHelper we will be populating data into.
+        MeshHelper* meshHelper = [[MeshHelper alloc] init];
+        
+        // Handle material info
+        
+        aiMaterial* mtl = _scene->mMaterials[mesh->mMaterialIndex];
+        
+        // Textures
+        int texIndex = 0;
+        aiString texPath;
+        
+        if(AI_SUCCESS == mtl->GetTexture(aiTextureType_DIFFUSE, texIndex, &texPath))
+        {
+            NSString* textureKey = [NSString stringWithCString:texPath.data encoding:[NSString defaultCStringEncoding]];
+            //bind texture
+            NSNumber* textureNumber = (NSNumber*)[textureDictionary valueForKey:textureKey];
+            
+            //NSLog(@"applyMaterialInContext: have texture %i", [textureNumber unsignedIntValue]); 
+            meshHelper.textureID = [textureNumber unsignedIntValue];		
+        }
+        else
+            meshHelper.textureID = 0;
+        
+        // Colors
+        
+        aiColor4D dcolor = aiColor4D(0.8f, 0.8f, 0.8f, 1.0f);
+        if(AI_SUCCESS == aiGetMaterialColor(mtl, AI_MATKEY_COLOR_DIFFUSE, &dcolor))
+            [meshHelper setDiffuseColor:&dcolor];
+        
+        aiColor4D scolor = aiColor4D(0.0f, 0.0f, 0.0f, 1.0f);
+        if(AI_SUCCESS == aiGetMaterialColor(mtl, AI_MATKEY_COLOR_SPECULAR, &scolor))
+            [meshHelper setSpecularColor:&scolor];
+        
+        aiColor4D acolor = aiColor4D(0.2f, 0.2f, 0.2f, 1.0f);
+        if(AI_SUCCESS == aiGetMaterialColor(mtl, AI_MATKEY_COLOR_AMBIENT, &acolor))
+            [meshHelper setAmbientColor:&acolor];
+        
+        aiColor4D ecolor = aiColor4D(0.0f, 0.0f, 0.0f, 1.0f);
+        if(AI_SUCCESS == aiGetMaterialColor(mtl, AI_MATKEY_COLOR_EMISSIVE, &ecolor))
+            [meshHelper setEmissiveColor:&ecolor];
+        
+        // Culling
+        unsigned int max = 1;
+        int two_sided;
+        if((AI_SUCCESS == aiGetMaterialIntegerArray(mtl, AI_MATKEY_TWOSIDED, &two_sided, &max)) && two_sided)
+            [meshHelper setTwoSided:YES];
+        else
+            [meshHelper setTwoSided:NO];
+        
+        // Create a VBO for our vertices
+        
+        GLuint vhandle;
+        glGenBuffers(1, &vhandle);
+        
+        glBindBuffer(GL_ARRAY_BUFFER, vhandle);
+        
+        // populate vertices
+        Vertex* verts = (Vertex*) //glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
+            malloc(sizeof(Vertex) * mesh->mNumVertices);
+        
+        for (unsigned int x = 0; x < mesh->mNumVertices; ++x)
+        {
+            verts->vPosition = mesh->mVertices[x];
+            
+            if (NULL == mesh->mNormals)
+                verts->vNormal = aiVector3D(0.0f,0.0f,0.0f);
+            else
+                verts->vNormal = mesh->mNormals[x];
+            
+            if (NULL == mesh->mTangents)
+            {
+                verts->vTangent = aiVector3D(0.0f,0.0f,0.0f);
+                verts->vBitangent = aiVector3D(0.0f,0.0f,0.0f);
+            }
+            else
+            {
+                verts->vTangent = mesh->mTangents[x];
+                verts->vBitangent = mesh->mBitangents[x];
+            }
+            
+            if (mesh->HasVertexColors(0))
+            {
+                verts->dColorDiffuse = mesh->mColors[0][x];
+            }
+            else
+                verts->dColorDiffuse = aiColor4D(1.0, 1.0, 1.0, 1.0);
+            
+            // This varies slightly form Assimp View, we support the 3rd texture component.
+            if (mesh->HasTextureCoords(0))
+                verts->vTextureUV = mesh->mTextureCoords[0][x];
+            else
+                verts->vTextureUV = aiVector3D(0.5f,0.5f, 0.0f);
+            
+            if (mesh->HasTextureCoords(1))
+                verts->vTextureUV2 = mesh->mTextureCoords[1][x];
+            else 
+                verts->vTextureUV2 = aiVector3D(0.5f,0.5f, 0.0f);
+            
+            // TODO: handle Bone indices and weights
+            /*          if( mesh->HasBones())
+             {
+             unsigned char boneIndices[4] = { 0, 0, 0, 0 };
+             unsigned char boneWeights[4] = { 0, 0, 0, 0 };
+             ai_assert( weightsPerVertex[x].size() <= 4);
+             
+             for( unsigned int a = 0; a < weightsPerVertex[x].size(); a++)
+             {
+             boneIndices[a] = weightsPerVertex[x][a].mVertexId;
+             boneWeights[a] = (unsigned char) (weightsPerVertex[x][a].mWeight * 255.0f);
+             }
+             
+             memcpy( verts->mBoneIndices, boneIndices, sizeof( boneIndices));
+             memcpy( verts->mBoneWeights, boneWeights, sizeof( boneWeights));
+             }
+             else
+             */ 
+            {
+                memset( verts->mBoneIndices, 0, sizeof( verts->mBoneIndices));
+                memset( verts->mBoneWeights, 0, sizeof( verts->mBoneWeights));
+            }
+            
+            ++verts;
+        }
+        glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * mesh->mNumVertices, verts, GL_STATIC_DRAW);
+        
+        //glUnmapBufferARB(GL_ARRAY_BUFFER_ARB); //invalidates verts
+        free(verts);
+        //JRW: wtf is this?
+        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        
+        // set the mesh vertex buffer handle to our new vertex buffer.
+        meshHelper.vertexBuffer = vhandle;
+        
+        // Create Index Buffer
+        
+        // populate the index buffer.
+        NSUInteger nidx;
+        switch (mesh->mPrimitiveTypes)
+        {
+            case aiPrimitiveType_POINT:
+                nidx = 1;break;
+            case aiPrimitiveType_LINE:
+                nidx = 2;break;
+            case aiPrimitiveType_TRIANGLE:
+                nidx = 3;break;
+            default: assert(false);
+        }   
+        
+        // create the index buffer
+        GLuint ihandle;
+        glGenBuffers(1, &ihandle);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ihandle);
+        
+        unsigned int* indices = (unsigned int*)  //glMapBuffer(GL_ELEMENT_ARRAY_BUFFER, GL_WRITE_ONLY_ARB);
+            malloc( sizeof(GLuint) * mesh->mNumFaces * nidx);
+        // now fill the index buffer
+        for (unsigned int x = 0; x < mesh->mNumFaces; ++x)
+        {
+            for (unsigned int a = 0; a < nidx; ++a)
+            {
+                //                 if(mesh->mFaces[x].mNumIndices != 3)
+                //                     NSLog(@"whoa dont have 3 indices...");
+                
+                *indices++ = mesh->mFaces[x].mIndices[a];
+            }
+        }
+        glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * mesh->mNumFaces * nidx, indices, GL_STATIC_DRAW);
+        free(indices);
+        //glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
+        
+        // set the mesh index buffer handle to our new index buffer.
+        meshHelper.indexBuffer = ihandle;
+        meshHelper.numIndices = mesh->mNumFaces * nidx;
+        
+        // create the normal buffer. Assimp View creates a second normal buffer. Unsure why. Using only the interleaved normals for now.
+        // This is here for reference.
+        
+        /*          GLuint nhandle;
+         glGenBuffers(1, &nhandle);
+         glBindBuffer(GL_ARRAY_BUFFER, nhandle);
+         glBufferData(GL_ARRAY_BUFFER, sizeof(aiVector3D)* mesh->mNumVertices, NULL, GL_STATIC_DRAW);
+         
+         // populate normals
+         aiVector3D* normals = (aiVector3D*)glMapBuffer(GL_ARRAY_BUFFER_ARB, GL_WRITE_ONLY_ARB);
+         
+         for (unsigned int x = 0; x < mesh->mNumVertices; ++x)
+         {
+         aiVector3D vNormal = mesh->mNormals[x];
+         *normals = vNormal;
+         ++normals;
+         }
+         
+         glUnmapBufferARB(GL_ARRAY_BUFFER_ARB); //invalidates verts
+         glBindBuffer(GL_ARRAY_BUFFER, 0);
+         
+         meshHelper.normalBuffer = nhandle;
+         */
+        //http://gamedev.stackexchange.com/questions/11438/when-to-use-vertex-array-and-when-to-use-vbo
+        
+        // Create VAO and populate it
+        /*
+        GLuint vaoHandle; 
+        glGenVertexArraysAPPLE(1, &vaoHandle);
+        
+        glBindVertexArrayAPPLE(vaoHandle);
+        
+        
+        glBindBuffer(GL_ARRAY_BUFFER, meshHelper.vertexBuffer);
+        
+        glEnableClientState(GL_NORMAL_ARRAY);
+        
+        glNormalPointer(GL_FLOAT, sizeof(Vertex), BUFFER_OFFSET(12));
+        
+        glEnableClientState(GL_COLOR_ARRAY);
+        glColorPointer(4, GL_FLOAT, sizeof(Vertex), BUFFER_OFFSET(24));
+        
+        glEnableClientState(GL_TEXTURE_COORD_ARRAY);
+        glTexCoordPointer(3, GL_FLOAT, sizeof(Vertex), BUFFER_OFFSET(64));
+        //TODO: handle second texture
+        
+        // VertexPointer ought to come last, apparently this is some optimization, since if its set once, first, it gets fiddled with every time something else is update.
+        glEnableClientState(GL_VERTEX_ARRAY);
+        glVertexPointer(3, GL_FLOAT, sizeof(Vertex), 0);
+        
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, meshHelper.indexBuffer);
+        
+        glBindVertexArrayAPPLE(0);
+        
+        // save the VAO handle into our mesh helper
+        meshHelper.vao = vaoHandle;
+        
+        // Create the display list
+        
+        GLuint list = glGenLists(1);
+        
+        glNewList(list, GL_COMPILE);
+        
+        float dc[4];
+        float sc[4];
+        float ac[4];
+        float emc[4];        
+        
+        // Material colors and properties
+        color4_to_float4([meshHelper diffuseColor], dc);
+        glMaterialfv(GL_FRONT_AND_BACK, GL_DIFFUSE, dc);
+        
+        color4_to_float4([meshHelper specularColor], sc);
+        glMaterialfv(GL_FRONT_AND_BACK, GL_SPECULAR, sc);
+        
+        color4_to_float4([meshHelper ambientColor], ac);
+        glMaterialfv(GL_FRONT_AND_BACK, GL_AMBIENT, ac);
+        
+        color4_to_float4(meshHelper.emissiveColor, emc);
+        glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emc);
+        
+        //glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+        
+        // Culling
+        if(meshHelper.twoSided)
+            glEnable(GL_CULL_FACE);
+        else 
+            glDisable(GL_CULL_FACE);
+        
+        
+        // Texture Binding
+        glBindTexture(GL_TEXTURE_2D, meshHelper.textureID);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR); 
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); 
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT); 
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); 
+        
+        // This binds the whole VAO, inheriting all the buffer and client state. Weeee
+        //glBindVertexArrayAPPLE(meshHelper.vao);        
+        glDrawElements(GL_TRIANGLES, meshHelper.numIndices, GL_UNSIGNED_INT, 0);
+        
+        glEndList();
+        
+        meshHelper.displayList = list;
+        */
+        // Whew, done. Save all of this shit.
+        [modelMeshes addObject:meshHelper];
+        
+        //ARC DOES THIS: [meshHelper release];
+    }
+}
+
+- (void) drawMeshes
+{
+    for(MeshHelper* helper in modelMeshes)
+    {
+        // Set up meterial state.
+        //glCallList(helper.displayList);  
+    }
+}
+
+
+- (void) loadTexturesWithModelPath:(NSString*) modelPath
+{    
+    if (_scene->HasTextures())
+    {
+        NSLog(@"Support for meshes with embedded textures is not implemented");
+        return;
+    }
+    
+    /* getTexture Filenames and Numb of Textures */
+	for (unsigned int m = 0; m < _scene->mNumMaterials; m++)
+	{		
+		int texIndex = 0;
+		aiReturn texFound = AI_SUCCESS;
+        
+		aiString path;	// filename
+        
+        // TODO: handle other aiTextureTypes
+		while (texFound == AI_SUCCESS)
+		{
+			texFound = _scene->mMaterials[m]->GetTexture(aiTextureType_DIFFUSE, texIndex, &path);
+            
+            NSString* texturePath = [NSString stringWithCString:path.data encoding:[NSString defaultCStringEncoding]];
+            
+            // add our path to the texture and the index to our texture dictionary.
+            [textureDictionary setValue:[NSNumber numberWithUnsignedInt:texIndex] forKey:texturePath];
+            
+			texIndex++;
+		}		
+	}
+    
+    textureIds = (GLuint*) malloc(sizeof(GLuint) * [textureDictionary count]); //new GLuint[ [textureDictionary count] ];
+    glGenTextures([textureDictionary count], textureIds);
+    
+    NSLog(@"textureDictionary: %@", textureDictionary);
+    
+    // create our textures, populate them, and alter our textureID value for the specific textureID we create.
+    
+    // so we can modify while we enumerate... 
+    NSDictionary *textureCopy = [textureDictionary copy];
+    
+    // GCD attempt.
+    //dispatch_sync(_queue, ^{
+    
+    int i = 0;
+    
+    for(NSString* texturePath in textureCopy)
+    {        
+        NSString* fullTexturePath = [[[modelPath stringByDeletingLastPathComponent] stringByAppendingPathComponent:[texturePath stringByStandardizingPath]] stringByStandardizingPath];
+        NSLog(@"texturePath: %@", fullTexturePath);
+        
+        UIImage* textureImage = [[UIImage alloc] initWithContentsOfFile:fullTexturePath];
+        
+        if(textureImage)
+        {
+            /* JRW: this is hte old way:
+            //NSLog(@"Have Texture Image");
+            //NSBitmapImageRep* bitmap = [NSBitmapImageRep alloc];
+            
+            //[textureImage lockFocus];
+            //[bitmap initWithFocusedViewRect:NSMakeRect(0, 0, textureImage.size.width, textureImage.size.height)];
+            //[textureImage unlockFocus];
+            
+            glActiveTexture(GL_TEXTURE0);
+            glEnable(GL_TEXTURE_2D);
+            glBindTexture(GL_TEXTURE_2D, textureIds[i]);
+            //glPixelStorei(GL_UNPACK_ROW_LENGTH, [bitmap pixelsWide]);
+            //glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+            
+            // generate mip maps
+            glTexParameteri(GL_TEXTURE_2D, GL_GENERATE_MIPMAP, GL_TRUE);
+            
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST_MIPMAP_LINEAR); 
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR); 
+            
+            // draw into our bitmap
+            //int samplesPerPixel = [bitmap samplesPerPixel];
+            
+            if(![bitmap isPlanar] && (samplesPerPixel == 3 || samplesPerPixel == 4))
+            {
+                glTexImage2D(GL_TEXTURE_2D,
+                             0,
+                             //samplesPerPixel == 4 ? GL_COMPRESSED_RGBA_S3TC_DXT3_EXT : GL_COMPRESSED_RGB_S3TC_DXT1_EXT, 
+                             samplesPerPixel == 4 ? GL_RGBA8 : GL_RGB8,
+                             [bitmap pixelsWide],
+                             [bitmap pixelsHigh],
+                             0,
+                             samplesPerPixel == 4 ? GL_RGBA : GL_RGB,
+                             GL_UNSIGNED_BYTE,
+                             [bitmap bitmapData]);
+                
+            } 
+            
+            
+            // update our dictionary to contain the proper textureID value (from out array of generated IDs)
+            [textureDictionary setValue:[NSNumber numberWithUnsignedInt:textureIds[i]] forKey:texturePath];
+            */
+            //JRW: do this this way instead:   maybe see https://developer.apple.com/library/ios/#samplecode/GLImageProcessing/Listings/Texture_m.html#//apple_ref/doc/uid/DTS40009053-Texture_m-DontLinkElementID_13
+            GLuint spriteTexture = 0;
+            CGImage *image = textureImage.CGImage;
+            GLsizei width = CGImageGetWidth(image);
+            GLsizei height = CGImageGetHeight(image);
+            CFDataRef data = CGDataProviderCopyData(CGImageGetDataProvider(image));
+            
+            GLubyte *spriteData = (GLubyte *)CFDataGetBytePtr(data);
+            glGenTextures(1, &spriteTexture);
+            
+            glBindTexture(GL_TEXTURE_2D, spriteTexture);
+            
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+            
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, spriteData);
+            
+            //YAY ARC! [bitmap release];
+        }
+        else
+        {
+            [textureDictionary removeObjectForKey:texturePath];
+            NSLog(@"Could not Load Texture: %@, removing reference to it.", fullTexturePath);
+        }
+        
+        //YAY ARC! [textureImage release];
+        i++;
+    }       
+    //});
+    
+    //YAY ARC! [textureCopy release];
+    
+}
+
+
 @end
     

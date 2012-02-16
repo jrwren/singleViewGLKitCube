@@ -151,6 +151,9 @@
 		A19B533214E45CE1001F43BC /* zutil.c in Sources */ = {isa = PBXBuildFile; fileRef = A19B529514E45CE0001F43BC /* zutil.c */; };
 		A19B533314E45CE1001F43BC /* zlib_note.txt in Resources */ = {isa = PBXBuildFile; fileRef = A19B529714E45CE0001F43BC /* zlib_note.txt */; };
 		A19B533514E46844001F43BC /* dwarf.x in Resources */ = {isa = PBXBuildFile; fileRef = A19B533414E46844001F43BC /* dwarf.x */; };
+		A19D5BEA14EC3AAB00A47A16 /* ModelLoaderHelperClasses.mm in Sources */ = {isa = PBXBuildFile; fileRef = A19D5BE914EC3AAA00A47A16 /* ModelLoaderHelperClasses.mm */; };
+		A19D5BF114ED8C0400A47A16 /* axe.jpg in Resources */ = {isa = PBXBuildFile; fileRef = A19D5BEF14ED8C0400A47A16 /* axe.jpg */; };
+		A19D5BF214ED8C0400A47A16 /* dwarf.jpg in Resources */ = {isa = PBXBuildFile; fileRef = A19D5BF014ED8C0400A47A16 /* dwarf.jpg */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -526,6 +529,10 @@
 		A19B529614E45CE0001F43BC /* zutil.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = zutil.h; sourceTree = "<group>"; };
 		A19B529714E45CE0001F43BC /* zlib_note.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = zlib_note.txt; sourceTree = "<group>"; };
 		A19B533414E46844001F43BC /* dwarf.x */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = dwarf.x; sourceTree = "<group>"; };
+		A19D5BE814EC3AAA00A47A16 /* ModelLoaderHelperClasses.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = ModelLoaderHelperClasses.h; sourceTree = "<group>"; };
+		A19D5BE914EC3AAA00A47A16 /* ModelLoaderHelperClasses.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = ModelLoaderHelperClasses.mm; sourceTree = "<group>"; };
+		A19D5BEF14ED8C0400A47A16 /* axe.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = axe.jpg; sourceTree = "<group>"; };
+		A19D5BF014ED8C0400A47A16 /* dwarf.jpg */ = {isa = PBXFileReference; lastKnownFileType = image.jpeg; path = dwarf.jpg; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -558,6 +565,8 @@
 		A10D1E3414D9C45500587840 = {
 			isa = PBXGroup;
 			children = (
+				A19D5BEF14ED8C0400A47A16 /* axe.jpg */,
+				A19D5BF014ED8C0400A47A16 /* dwarf.jpg */,
 				A19B533414E46844001F43BC /* dwarf.x */,
 				A19B517C14E45CE0001F43BC /* contrib */,
 				A19B501714E43A46001F43BC /* assimp */,
@@ -594,6 +603,8 @@
 		A10D1E4914D9C45600587840 /* singleViewGLKitCube */ = {
 			isa = PBXGroup;
 			children = (
+				A19D5BE814EC3AAA00A47A16 /* ModelLoaderHelperClasses.h */,
+				A19D5BE914EC3AAA00A47A16 /* ModelLoaderHelperClasses.mm */,
 				A10D1E5214D9C45600587840 /* AppDelegate.h */,
 				A10D1E5314D9C45600587840 /* AppDelegate.m */,
 				A10D1E5514D9C45600587840 /* MainStoryboard.storyboard */,
@@ -1168,6 +1179,8 @@
 				A19B533014E45CE1001F43BC /* README in Resources */,
 				A19B533314E45CE1001F43BC /* zlib_note.txt in Resources */,
 				A19B533514E46844001F43BC /* dwarf.x in Resources */,
+				A19D5BF114ED8C0400A47A16 /* axe.jpg in Resources */,
+				A19D5BF214ED8C0400A47A16 /* dwarf.jpg in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -1316,6 +1329,7 @@
 				A19B532F14E45CE1001F43BC /* inftrees.c in Sources */,
 				A19B533114E45CE1001F43BC /* trees.c in Sources */,
 				A19B533214E45CE1001F43BC /* zutil.c in Sources */,
+				A19D5BEA14EC3AAB00A47A16 /* ModelLoaderHelperClasses.mm in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
