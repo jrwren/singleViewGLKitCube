@@ -36,8 +36,6 @@ static void set_float4(float f[4], float a, float b, float c, float d)
 	f[3] = d;
 }
 
-
-
 @implementation NSArray (stuff)
 
 - (id)first: (BOOL (^)(id obj))block{
@@ -95,6 +93,7 @@ static const char * UIControlDDBlockActions = "unique";
     [self addTarget:del action:@selector(invokeTheBlock) forControlEvents:controlEvents];
 }
 @end
+
 @implementation ViewController
 
 @synthesize effect = _effect;
@@ -111,15 +110,50 @@ static const char * UIControlDDBlockActions = "unique";
 BOOL on;
 
 float _rotation;
+float xrotation = 0;
+GLuint _vertexBuffer;
+GLuint _indexBuffer;
+
+typedef struct {
+    float Position[3];
+    float Color[4];
+} OldVertex;
+const OldVertex Vertices[] = {
+    {{32.585007,20.983316,13.993474}, {1, 0, 0, 1}},
+    {{1, 1, 0}, {0, 1, 0, 1}},
+    {{-1, 1, 0}, {0, 0, 1, 1}},
+    {{-1, -1, 0}, {0, 0, 0, 1}}
+};
+
+//JRW: I want this, but I can't have it :(
+//const Vertex Vertices[] = {
+//    {{1, -1, 0},  {0,0,0}, {1, 0, 0, 1},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0,0},{0,0,0,0}},
+//    {{1, 1, 0},   {0,0,0}, {0, 1, 0, 1},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0,0},{0,0,0,0}},
+//    {{-1, 1, 0},  {0,0,0}, {0, 0, 1, 1},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0,0},{0,0,0,0}},
+//    {{-1, -1, 0}, {0,0,0}, {0, 0, 0, 1},{0,0,0},{0,0,0},{0,0,0},{0,0,0},{0,0,0,0},{0,0,0,0}}
+//};
+
+const GLubyte Indices[] = {
+    0,1,2,2,3,0
+};
 
 - (void) setupGL{
     //JRW: probably not needed.
-    //[EAGLContext setCurrentContext:self.context];
+    [EAGLContext setCurrentContext:self.context];
     
     ((GLKView*)self.view).drawableMultisample = GLKViewDrawableMultisample4X;
     
     self.effect = [[GLKBaseEffect alloc] init];
+}
+-(void) bindOldVertex{
     
+    glGenBuffers(1, &_vertexBuffer);
+    glBindBuffer(GL_ARRAY_BUFFER, _vertexBuffer);
+    glBufferData(GL_ARRAY_BUFFER, sizeof(Vertices), Vertices, GL_STATIC_DRAW);
+    
+    glGenBuffers(1, &_indexBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _indexBuffer);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(Indices), Indices, GL_STATIC_DRAW);
 }
 
 -(void) loadModel{
@@ -145,6 +179,9 @@ float _rotation;
         normalizedScale = aisgl_max(scene_max.y - scene_min.y,normalizedScale);
         normalizedScale = aisgl_max(scene_max.z - scene_min.z,normalizedScale);
         normalizedScale = 1.f / normalizedScale;
+        
+        DLog(@"scene_center: %f, %f, %f", scene_center.x, scene_center.y, scene_center.z);
+        DLog(@"normalizedScale: %f", normalizedScale);
         
         if(_scene->HasAnimations())
             NSLog(@"scene has animations");
@@ -193,12 +230,18 @@ float _rotation;
         [stop addTarget:^(id sender){ self.paused=NO; } forControlEvents:UIControlEventTouchUpInside];
     }
     //[go addTarget:self action:@selector(goon) forControlEvents:UIControlEventTouchUpInside];
+    
     [self setupGL];
+    [self bindOldVertex];
+#define LOADMODEL 1
+#if LOADMODEL
     [self loadModel];
+#endif
 }
+/*
 - (void)goon {
     on=YES;
-}
+}*/
 
 - (void)tearDownGL{
     
@@ -239,18 +282,28 @@ float _rotation;
 }
 
 - (void)glkView:(GLKView *)view drawInRect:(CGRect)rect{
-    glClearColor(_curRed, 0.0, 0.0, _curRed);
+    glClearColor(_curRed, 0.0, 0.0, 1.0);
     glClear(GL_COLOR_BUFFER_BIT);
     
     [self.effect prepareToDraw];
-        
 
+    glBindBuffer(GL_ARRAY_BUFFER, _vertexBuffer);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _indexBuffer);
     
-    DLog(@"zomg!");
-
+    glEnableVertexAttribArray(GLKVertexAttribPosition);        
+    glVertexAttribPointer(GLKVertexAttribPosition, 3, GL_FLOAT, GL_FALSE, sizeof(OldVertex), (const GLvoid *) offsetof(OldVertex, Position));
+    glEnableVertexAttribArray(GLKVertexAttribColor);
+    glVertexAttribPointer(GLKVertexAttribColor, 4, GL_FLOAT, GL_FALSE, sizeof(OldVertex), (const GLvoid *) offsetof(OldVertex, Color));
+    
+        glDrawElements(GL_TRIANGLES, sizeof(Indices)/sizeof(Indices[0]), GL_UNSIGNED_BYTE, 0);
+    
+#if LOADMODEL
+    [self drawMeshes];
+#endif
 }
+float zoom = 1.0f;
 -(void)update{
-    DLog(@"wtf!");
+
     if (_increasing) {
         _curRed += 0.01;
     } else {
@@ -265,31 +318,47 @@ float _rotation;
         _increasing = YES;
     }
     
-    
-    float aspect = fabsf(self.view.bounds.size.width / self.view.bounds.size.height);
-    GLKMatrix4 projectionMatrix = GLKMatrix4MakePerspective(GLKMathDegreesToRadians(65.0f), aspect, 4.0f, 10.0f);    
+    /* what I think should work: 
+    float aspect = fabsf(self.view.bounds.size.height / self.view.bounds.size.width); //h/w or w/h ?
+    GLKMatrix4 projectionMatrix = //GLKMatrix4MakePerspective(GLKMathDegreesToRadians(65.0f), aspect, -10.0f, 10.0f);    
+        GLKMatrix4MakeOrtho(-1, 1, - (aspect), aspect, -10, 10); //glOrtho(...)
     self.effect.transform.projectionMatrix = projectionMatrix;
     
-    GLKMatrix4 modelViewMatrix = GLKMatrix4MakeTranslation(0.0f, 0.0f, -6.0f);   
-    _rotation += 90 * self.timeSinceLastUpdate;
-    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, GLKMathDegreesToRadians(_rotation), 0, 1, 1);
-    self.effect.transform.modelviewMatrix = modelViewMatrix;
     
-    [self drawMeshes];
+    GLKMatrix4 modelViewMatrix = GLKMatrix4Identity; //glLoadIdentity
+    GLKMatrix4Translate(modelViewMatrix, 0, 0, 1.0 ); //glTranslated(0.0, 0.0, 1.0);
+    GLKMatrix4Scale(modelViewMatrix, normalizedScale, normalizedScale, normalizedScale); //glScaled(normalizedScale, normalizedScale, normalizedScale);
+    modelViewMatrix = GLKMatrix4Translate(modelViewMatrix,-scene_center.x, -scene_center.y, -scene_center.z);   //glTranslated( -scene_center.x, -scene_center.y, -scene_center.z)
+    float scale = .5f;
+    modelViewMatrix = GLKMatrix4Scale(modelViewMatrix, scale,scale,scale);
+    _rotation += 90 * self.timeSinceLastUpdate;
+    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, GLKMathDegreesToRadians(_rotation), 0.0f, 0.25f, 1.0f); //glRotated
+    self.effect.transform.modelviewMatrix = modelViewMatrix;
+     */
+    
+    float aspect = fabsf(self.view.bounds.size.width / self.view.bounds.size.height);
+    GLKMatrix4 projectionMatrix = GLKMatrix4MakePerspective(GLKMathDegreesToRadians(65.0f), aspect, 4.1f, 10.0f);
+    //float basezoom = 0.75;
+    //projectionMatrix = GLKMatrix4Scale(projectionMatrix, basezoom, basezoom, basezoom);
+    projectionMatrix = GLKMatrix4Scale(projectionMatrix, zoom, zoom, zoom);
+    self.effect.transform.projectionMatrix = projectionMatrix;
+    
+    GLKMatrix4 modelViewMatrix = GLKMatrix4MakeTranslation(0.0f, 0.0f, -6.0f);
+    //GLKMatrix4 viewMatrix = GLKMatrix4MakeLookAt(-10, -10, 3, scene_center.x, scene_center.y, scene_center.z, 0, 1, 0);
+    //GLKMatrix4 modelMatrix = GLKMatrix4Identity;
+    //GLKMatrix4 modelViewMatrix = GLKMatrix4Multiply(viewMatrix, modelMatrix);
+    if(!self.paused)
+        _rotation += 90 * self.timeSinceLastUpdate;
+    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, GLKMathDegreesToRadians(xrotation), 1, 0, 0);
+    modelViewMatrix = GLKMatrix4Rotate(modelViewMatrix, GLKMathDegreesToRadians(_rotation), 0, 0, 1);
+    
+    self.effect.transform.modelviewMatrix = modelViewMatrix;
 }
--(void)touchesBegan:(NSSet *)touches withEvent:(UIEvent *)event{
-    self.paused = !self.paused;
-    NSLog(@"timeSinceLastUpdate: %f", self.timeSinceLastUpdate);
-    NSLog(@"timeSinceLastDraw: %f", self.timeSinceLastDraw);
-    NSLog(@"timeSinceFirstResume: %f", self.timeSinceFirstResume);
-    NSLog(@"timeSinceLastResume: %f", self.timeSinceLastResume);
-}
-
-
 
 // Inspired by LoadAsset() & CreateAssetData() from AssimpView D3D project
-- (void) createGLResources
+- (void) createGLResources //called only from loadModel
 {
+    NSLog(@"yay offsetof! vPosition:%lu and dColorDiffuse:%lu", offsetof(Vertex, vPosition), offsetof(Vertex,dColorDiffuse));
     // create new mesh helpers for each mesh, will populate their data later.
     modelMeshes = [[NSMutableArray alloc] initWithCapacity:_scene->mNumMeshes];
     
@@ -355,8 +424,6 @@ float _rotation;
         GLuint vhandle;
         glGenBuffers(1, &vhandle);
         
-        glBindBuffer(GL_ARRAY_BUFFER, vhandle);
-        
         // populate vertices
         Vertex* verts = (Vertex*) //glMapBuffer(GL_ARRAY_BUFFER, GL_WRITE_ONLY);
             malloc(sizeof(Vertex) * mesh->mNumVertices);
@@ -364,7 +431,8 @@ float _rotation;
         for (unsigned int x = 0; x < mesh->mNumVertices; ++x)
         {
             verts->vPosition = mesh->mVertices[x];
-            
+            if(0==x)
+                DLog(@"Vertex! %f,%f,%f", verts->vPosition.x, verts->vPosition.y, verts->vPosition.z);
             if (NULL == mesh->mNormals)
                 verts->vNormal = aiVector3D(0.0f,0.0f,0.0f);
             else
@@ -427,9 +495,12 @@ float _rotation;
         glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * mesh->mNumVertices, verts, GL_STATIC_DRAW);
         
         //glUnmapBufferARB(GL_ARRAY_BUFFER_ARB); //invalidates verts
-        free(verts);
+        
+        //JRW what if I don't free?
+        //free(verts);
+        
         //JRW: wtf is this?
-        glBindBuffer(GL_ARRAY_BUFFER, 0);
+        //glBindBuffer(GL_ARRAY_BUFFER, 0);
         
         // set the mesh vertex buffer handle to our new vertex buffer.
         meshHelper.vertexBuffer = vhandle;
@@ -468,7 +539,9 @@ float _rotation;
             }
         }
         glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(GLuint) * mesh->mNumFaces * nidx, indices, GL_STATIC_DRAW);
-        free(indices);
+        
+        //JRW: i won't free... i'll leak.
+        //free(indices);
         //glUnmapBuffer(GL_ELEMENT_ARRAY_BUFFER);
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
         
@@ -501,14 +574,19 @@ float _rotation;
          */
         //http://gamedev.stackexchange.com/questions/11438/when-to-use-vertex-array-and-when-to-use-vbo
         
+        // better help: http://openglbook.com/the-book/chapter-2-vertices-and-shapes/
+        //JRW: attempt to port VAO to VBO from the above "create vao and populate it" comment
+        //i can't understand what this VAO is doing since vertexes have already been bound via vhandle VBO
+        // and https://developer.apple.com/library/ios/#DOCUMENTATION/3DDrawing/Conceptual/OpenGLES_ProgrammingGuide/TechniquesforWorkingwithVertexData/TechniquesforWorkingwithVertexData.html
         // Create VAO and populate it
-        /*
+        
         GLuint vaoHandle; 
-        glGenVertexArraysAPPLE(1, &vaoHandle);
+        //glGenVertexArraysAPPLE(1, &vaoHandle);
+        //glBindVertexArrayAPPLE(vaoHandle);
+        glGenVertexArraysOES(1, &vaoHandle);
+        glBindVertexArrayOES(vaoHandle);
         
-        glBindVertexArrayAPPLE(vaoHandle);
-        
-        
+        //JRW: why a I binding AGAIN here? I already did above!
         glBindBuffer(GL_ARRAY_BUFFER, meshHelper.vertexBuffer);
         
         glEnableClientState(GL_NORMAL_ARRAY);
@@ -528,13 +606,14 @@ float _rotation;
         
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, meshHelper.indexBuffer);
         
-        glBindVertexArrayAPPLE(0);
+        //glBindVertexArrayAPPLE(0);
+        glBindVertexArrayOES(0);
         
         // save the VAO handle into our mesh helper
         meshHelper.vao = vaoHandle;
         
         // Create the display list
-        
+        /*JRW: no idea how to convert this.
         GLuint list = glGenLists(1);
         
         glNewList(list, GL_COMPILE);
@@ -557,7 +636,7 @@ float _rotation;
         color4_to_float4(meshHelper.emissiveColor, emc);
         glMaterialfv(GL_FRONT_AND_BACK, GL_EMISSION, emc);
         
-        //glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
+        glColorMaterial(GL_FRONT, GL_AMBIENT_AND_DIFFUSE);
         
         // Culling
         if(meshHelper.twoSided)
@@ -574,18 +653,60 @@ float _rotation;
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT); 
         
         // This binds the whole VAO, inheriting all the buffer and client state. Weeee
-        //glBindVertexArrayAPPLE(meshHelper.vao);        
+        glBindVertexArrayAPPLE(meshHelper.vao);        
         glDrawElements(GL_TRIANGLES, meshHelper.numIndices, GL_UNSIGNED_INT, 0);
         
         glEndList();
         
         meshHelper.displayList = list;
         */
+        
+      
+
+        glEnableVertexAttribArray(GLKVertexAttribPosition);
+        glVertexAttribPointer(GLKVertexAttribPosition, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, vPosition));
+        glEnableVertexAttribArray(GLKVertexAttribColor);
+        glVertexAttribPointer(GLKVertexAttribColor, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, dColorDiffuse));
+        
+        //meshHelper.vao = TODO
+        
+        //wait until post setup to draw?
+        glDrawElements(GL_TRIANGLES, meshHelper.numIndices, GL_UNSIGNED_INT, 0);
+        
         // Whew, done. Save all of this shit.
         [modelMeshes addObject:meshHelper];
         
         //ARC DOES THIS: [meshHelper release];
     }
+}
+
+- (void) deleteGLResources{
+    
+    for(MeshHelper* helper in modelMeshes)
+    {
+        const GLuint indexBuffer = helper.indexBuffer;
+        const GLuint vertexBuffer = helper.vertexBuffer;
+        const GLuint normalBuffer = helper.normalBuffer;
+        const GLuint vaoHandle = helper.vao;
+        //const GLuint dlist = helper.displayList;
+        
+        glDeleteBuffers(1, &vertexBuffer);
+        glDeleteBuffers(1, &indexBuffer);
+        glDeleteBuffers(1, &normalBuffer);
+        //glDeleteVertexArraysAPPLE(1, &vaoHandle);
+        glDeleteBuffers(1, &vaoHandle);
+        
+        //glDeleteLists(1, dlist);
+        
+        helper.indexBuffer = 0;
+        helper.vertexBuffer = 0;
+        helper.normalBuffer = 0;
+        helper.vao = 0;
+        helper.displayList = 0;
+    }
+    
+    //ARC :) : [modelMeshes release];
+    modelMeshes = nil;
 }
 
 - (void) drawMeshes
@@ -594,10 +715,19 @@ float _rotation;
     {
         // Set up meterial state.
         //glCallList(helper.displayList);  
+        glBindBuffer(GL_ARRAY_BUFFER, helper.vertexBuffer);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, helper.indexBuffer);
+        
+        glEnableVertexAttribArray(GLKVertexAttribPosition);
+        glVertexAttribPointer(GLKVertexAttribPosition, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, vPosition));
+        glEnableVertexAttribArray(GLKVertexAttribColor);
+        glVertexAttribPointer(GLKVertexAttribColor, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, dColorDiffuse));
+        
+        glDrawElements(GL_TRIANGLES, helper.numIndices, GL_UNSIGNED_INT, 0);
     }
 }
 
-
+//called only from loadModel
 - (void) loadTexturesWithModelPath:(NSString*) modelPath
 {    
     if (_scene->HasTextures())
@@ -710,6 +840,7 @@ float _rotation;
             
             glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, spriteData);
             
+            NSLog(@"loaded texture %@ %dx%d", texturePath, width, height);
             //YAY ARC! [bitmap release];
         }
         else
@@ -725,6 +856,133 @@ float _rotation;
     
     //YAY ARC! [textureCopy release];
     
+}
+
+- (void) getBoundingBoxWithMinVector:(struct aiVector3D*) min maxVectr:(struct aiVector3D*) max{
+    struct aiMatrix4x4 trafo;
+	aiIdentityMatrix4(&trafo);
+    
+	min->x = min->y = min->z =  1e10f;
+	max->x = max->y = max->z = -1e10f;
+    
+    [self getBoundingBoxForNode:_scene->mRootNode minVector:min maxVector:max matrix:&trafo];
+
+}
+- (void) getBoundingBoxForNode:(const struct aiNode*)nd  minVector:(struct aiVector3D*) min maxVector:(struct aiVector3D*) max matrix:(struct aiMatrix4x4*) trafo
+{
+    struct aiMatrix4x4 prev;
+	unsigned int n = 0, t;
+    
+	prev = *trafo;
+	aiMultiplyMatrix4(trafo,&nd->mTransformation);
+    
+	for (; n < nd->mNumMeshes; ++n)
+    {
+		const struct aiMesh* mesh = _scene->mMeshes[nd->mMeshes[n]];
+		for (t = 0; t < mesh->mNumVertices; ++t)
+        {
+        	struct aiVector3D tmp = mesh->mVertices[t];
+			aiTransformVecByMatrix4(&tmp,trafo);
+            
+			min->x = aisgl_min(min->x,tmp.x);
+			min->y = aisgl_min(min->y,tmp.y);
+			min->z = aisgl_min(min->z,tmp.z);
+            
+			max->x = aisgl_max(max->x,tmp.x);
+			max->y = aisgl_max(max->y,tmp.y);
+			max->z = aisgl_max(max->z,tmp.z);
+		}
+	}
+    
+	for (n = 0; n < nd->mNumChildren; ++n) 
+    {
+		[self getBoundingBoxForNode:nd->mChildren[n] minVector:min maxVector:max matrix:trafo];
+	}
+    
+	*trafo = prev;
+}
+
+-(void)DISABLEDtouchesBegan:(NSSet *)touches withEvent:(UIEvent *)event{
+    self.paused = !self.paused;
+    NSLog(@"timeSinceLastUpdate: %f", self.timeSinceLastUpdate);
+    NSLog(@"timeSinceLastDraw: %f", self.timeSinceLastDraw);
+    NSLog(@"timeSinceFirstResume: %f", self.timeSinceFirstResume);
+    NSLog(@"timeSinceLastResume: %f", self.timeSinceLastResume);
+}
+- (IBAction)tap:(id)sender {
+    self.paused = !self.paused;
+}
+
+float lastscale =0;
+- (IBAction)pinch:(id)sender {
+    UIPinchGestureRecognizer *grec = (UIPinchGestureRecognizer*)sender;
+    CGFloat scale = [grec scale];
+    
+    float scalediff = scale-lastscale;
+    lastscale = scale;
+    zoom *= 1+scalediff;
+    DLog(@"scale: %f, lastscale: %f, diffscale: %f, zoom: %f", scale, lastscale, scalediff, zoom);
+}
+
+- (IBAction)longPress:(id)sender {
+    zoom = 1.0f;
+}
+
+//doesn't really work, they all seem to register as pinch.
+- (IBAction)rotation:(id)sender {
+    UIRotationGestureRecognizer *rrot = (UIRotationGestureRecognizer*)sender;
+    CGFloat rotation = [rrot rotation];
+    CGFloat velocity = [rrot velocity];
+    DLog(@"rotation: %f, velocity: %f", rotation, velocity);
+    xrotation = rotation;
+}
+
+float firstX,firstY;
+CGPoint translatedPoint;
+- (IBAction)pan:(id)sender {
+    UIPanGestureRecognizer *pangest = (UIPanGestureRecognizer*)sender;
+    CGPoint translatedPoint = [(UIPanGestureRecognizer*)sender translationInView:self.view];
+    
+    if([(UIPanGestureRecognizer*)sender state] == UIGestureRecognizerStateBegan) {
+        firstX = [[sender view] center].x;
+        firstY = [[sender view] center].y;
+    }
+    
+    translatedPoint = CGPointMake(firstX+translatedPoint.x, firstY);
+    
+    xrotation = xrotation+ (firstX+translatedPoint.x)/200.0f;
+    DLog(@"xrotation: %f", xrotation); 
+    if([(UIPanGestureRecognizer*)sender state] == UIGestureRecognizerStateEnded) {
+        CGFloat velocityX = (0.2*[pangest velocityInView:self.view].x);
+        CGFloat finalX = translatedPoint.x + velocityX;
+        CGFloat finalY = firstY;// translatedPoint.y + (.35*[(UIPanGestureRecognizer*)sender velocityInView:self.view].y);
+        
+        
+        if(UIDeviceOrientationIsPortrait([[UIDevice currentDevice] orientation])) {
+            if(finalY < 0) {
+                DLog(@"wtf finalY<0");
+                finalY = 0;
+            }
+            else if(finalY > 1024) {
+                finalY = 1024;
+            }
+        }
+        else {
+            if(finalX < 0) {
+                //finalX = 0;
+            }
+            else if(finalX > 1024) {
+                //finalX = 768;
+            }
+            if(finalY < 0) {
+                finalY = 0;
+            }
+            else if(finalY > 768) {
+                finalY = 1024;
+            }
+        }
+    }
+
 }
 
 

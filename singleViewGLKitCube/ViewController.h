@@ -48,7 +48,6 @@
 @property (strong, nonatomic) EAGLContext *context;
 @property (strong, nonatomic) GLKBaseEffect *effect;
 
-- (void) render;
 
 - (void) drawMeshes;
 - (void) createGLResources;
@@ -58,5 +57,10 @@
 - (void) getBoundingBoxWithMinVector:(struct aiVector3D*) min maxVectr:(struct aiVector3D*) max;
 - (void) getBoundingBoxForNode:(const struct aiNode*)nd  minVector:(struct aiVector3D*) min maxVector:(struct aiVector3D*) max matrix:(struct aiMatrix4x4*) trafo;
 
+- (IBAction)tap:(id)sender;
+- (IBAction)pinch:(id)sender;
+- (IBAction)longPress:(id)sender;
+- (IBAction)rotation:(id)sender;
+- (IBAction)pan:(id)sender;
 
 @end

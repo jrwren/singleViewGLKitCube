@@ -12,17 +12,48 @@
                     <glkView key="view" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" enableSetNeedsDisplay="NO" id="baT-pV-8n8">
                         <rect key="frame" x="0.0" y="20" width="320" height="460"/>
                         <autoresizingMask key="autoresizingMask" widthSizable="YES" heightSizable="YES"/>
+                        <gestureRecognizers/>
+                        <connections>
+                            <outletCollection property="gestureRecognizers" destination="kgk-fK-QPl" appends="YES" id="HZI-t8-VzE"/>
+                            <outletCollection property="gestureRecognizers" destination="kgk-fK-QPl" appends="YES" id="Vqb-1a-YRG"/>
+                            <outletCollection property="gestureRecognizers" destination="2in-Nl-Zh3" appends="YES" id="xne-7S-s1Y"/>
+                            <outletCollection property="gestureRecognizers" destination="2in-Nl-Zh3" appends="YES" id="Zg9-Lg-DV8"/>
+                            <outletCollection property="gestureRecognizers" destination="vjE-cl-6bZ" appends="YES" id="mWH-nx-t1C"/>
+                            <outletCollection property="gestureRecognizers" destination="vjE-cl-6bZ" appends="YES" id="cKd-or-lqf"/>
+                            <outletCollection property="gestureRecognizers" destination="g4S-5e-IJS" appends="YES" id="Gr2-V6-ddY"/>
+                            <outletCollection property="gestureRecognizers" destination="hBx-Vn-uiN" appends="YES" id="k2Q-w9-teZ"/>
+                        </connections>
                     </glkView>
                 </viewController>
+                <tapGestureRecognizer id="kgk-fK-QPl">
+                    <connections>
+                        <action selector="tap:" destination="2" id="Q7s-21-OYT"/>
+                    </connections>
+                </tapGestureRecognizer>
+                <pinchGestureRecognizer id="2in-Nl-Zh3">
+                    <connections>
+                        <action selector="pinch:" destination="2" id="QHN-cf-g5n"/>
+                    </connections>
+                </pinchGestureRecognizer>
+                <pongPressGestureRecognizer allowableMovement="10" minimumPressDuration="0.5" id="vjE-cl-6bZ">
+                    <connections>
+                        <action selector="longPress:" destination="2" id="jKW-GM-aqq"/>
+                    </connections>
+                </pongPressGestureRecognizer>
+                <rotationGestureRecognizer id="g4S-5e-IJS">
+                    <connections>
+                        <action selector="rotation:" destination="2" id="vNp-9V-I45"/>
+                    </connections>
+                </rotationGestureRecognizer>
+                <panGestureRecognizer minimumNumberOfTouches="1" id="hBx-Vn-uiN">
+                    <connections>
+                        <action selector="pan:" destination="2" id="G0U-0N-DCj"/>
+                    </connections>
+                </panGestureRecognizer>
             </objects>
             <point key="canvasLocation" x="410" y="43"/>
         </scene>
     </scenes>
-    <classes>
-        <class className="ViewController" superclassName="GLKViewController">
-            <source key="sourceIdentifier" type="project" relativePath="./Classes/ViewController.h"/>
-        </class>
-    </classes>
     <simulatedMetricsContainer key="defaultSimulatedMetrics">
         <simulatedStatusBarMetrics key="statusBar"/>
         <simulatedOrientationMetrics key="orientation"/>
