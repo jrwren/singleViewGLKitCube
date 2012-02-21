@@ -104,9 +104,48 @@ static const char * UIControlDDBlockActions = "unique";
     [super didReceiveMemoryWarning];
     // Release any cached data, images, etc that aren't in use.
 }
+/*
+ - (void)goon {
+ on=YES;
+ }*/
 
-#pragma mark - View lifecycle
+- (void)tearDownGL{
+    
+    self.effect = nil;
+}
+- (void)viewDidUnload
+{
+    [super viewDidUnload];
+    // Release any retained subviews of the main view.
+    // e.g. self.myOutlet = nil;
+    [self tearDownGL];
+}
 
+- (void)viewWillAppear:(BOOL)animated
+{
+    [super viewWillAppear:animated];
+}
+
+- (void)viewDidAppear:(BOOL)animated
+{
+    [super viewDidAppear:animated];
+}
+
+- (void)viewWillDisappear:(BOOL)animated
+{
+	[super viewWillDisappear:animated];
+}
+
+- (void)viewDidDisappear:(BOOL)animated
+{
+	[super viewDidDisappear:animated];
+}
+
+- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation
+{
+    // Return YES for supported orientations
+    return (interfaceOrientation != UIInterfaceOrientationPortraitUpsideDown);
+}
 BOOL on;
 
 float _rotation;
@@ -232,61 +271,15 @@ const GLubyte Indices[] = {
     //[go addTarget:self action:@selector(goon) forControlEvents:UIControlEventTouchUpInside];
     
     [self setupGL];
-    [self bindOldVertex];
+    //[self bindOldVertex];
 #define LOADMODEL 1
 #if LOADMODEL
     [self loadModel];
 #endif
 }
-/*
-- (void)goon {
-    on=YES;
-}*/
 
-- (void)tearDownGL{
+-(void)drawOldVertex{
     
-    self.effect = nil;
-}
-- (void)viewDidUnload
-{
-    [super viewDidUnload];
-    // Release any retained subviews of the main view.
-    // e.g. self.myOutlet = nil;
-    [self tearDownGL];
-}
-
-- (void)viewWillAppear:(BOOL)animated
-{
-    [super viewWillAppear:animated];
-}
-
-- (void)viewDidAppear:(BOOL)animated
-{
-    [super viewDidAppear:animated];
-}
-
-- (void)viewWillDisappear:(BOOL)animated
-{
-	[super viewWillDisappear:animated];
-}
-
-- (void)viewDidDisappear:(BOOL)animated
-{
-	[super viewDidDisappear:animated];
-}
-
-- (BOOL)shouldAutorotateToInterfaceOrientation:(UIInterfaceOrientation)interfaceOrientation
-{
-    // Return YES for supported orientations
-    return (interfaceOrientation != UIInterfaceOrientationPortraitUpsideDown);
-}
-
-- (void)glkView:(GLKView *)view drawInRect:(CGRect)rect{
-    glClearColor(_curRed, 0.0, 0.0, 1.0);
-    glClear(GL_COLOR_BUFFER_BIT);
-    
-    [self.effect prepareToDraw];
-
     glBindBuffer(GL_ARRAY_BUFFER, _vertexBuffer);
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, _indexBuffer);
     
@@ -295,8 +288,35 @@ const GLubyte Indices[] = {
     glEnableVertexAttribArray(GLKVertexAttribColor);
     glVertexAttribPointer(GLKVertexAttribColor, 4, GL_FLOAT, GL_FALSE, sizeof(OldVertex), (const GLvoid *) offsetof(OldVertex, Color));
     
-        glDrawElements(GL_TRIANGLES, sizeof(Indices)/sizeof(Indices[0]), GL_UNSIGNED_BYTE, 0);
+    glDrawElements(GL_TRIANGLES, sizeof(Indices)/sizeof(Indices[0]), GL_UNSIGNED_BYTE, 0);
+
+}
+
+- (void) drawMeshes
+{
+    for(MeshHelper* helper in modelMeshes)
+    {
+        // Set up meterial state.
+        //glCallList(helper.displayList);  
+        glBindBuffer(GL_ARRAY_BUFFER, helper.vertexBuffer);
+        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, helper.indexBuffer);
+        
+        glEnableVertexAttribArray(GLKVertexAttribPosition);
+        glVertexAttribPointer(GLKVertexAttribPosition, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, vPosition));
+        glEnableVertexAttribArray(GLKVertexAttribColor);
+        glVertexAttribPointer(GLKVertexAttribColor, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, dColorDiffuse));
+        
+        glDrawElements(GL_TRIANGLES, helper.numIndices, GL_UNSIGNED_INT, 0);
+    }
+}
+
+- (void)glkView:(GLKView *)view drawInRect:(CGRect)rect{
+    glClearColor(_curRed, 0.0, 0.0, 1.0);
+    glClear(GL_COLOR_BUFFER_BIT);
     
+    [self.effect prepareToDraw];
+
+    //[self drawOldVertex];
 #if LOADMODEL
     [self drawMeshes];
 #endif
@@ -336,6 +356,40 @@ float zoom = 1.0f;
     self.effect.transform.modelviewMatrix = modelViewMatrix;
      */
     
+//TODO: port this to ES
+    glMatrixMode(GL_PROJECTION);
+    glLoadIdentity();
+    
+    glViewport(0, 0, _view.frame.size.width, _view.frame.size.height);
+    
+    GLfloat aspect = _view.frame.size.height/_view.frame.size.width; 
+    glOrtho(-1, 1, - (aspect), aspect, -10, 10);
+    
+    glMatrixMode(GL_MODELVIEW);
+    glLoadIdentity();
+    
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    
+    glTranslated(0.0, 0.0, 1.0);
+    
+    // Draw our GL model.    
+    if(_scene)
+    {
+        glScaled(normalizedScale , normalizedScale, normalizedScale);
+        // center the model
+        glTranslated( -scene_center.x, -scene_center.y, -scene_center.z);    
+        
+        glScaled(1.0, 1.0, 1.0);
+        
+        static float i = 0;
+        i+=1.5;
+        glRotated(i, i, 1, 0);
+        
+        [self drawMeshesInContext:cgl_ctx];
+    }
+
+}
+-(void)oldVertexUpdate{
     float aspect = fabsf(self.view.bounds.size.width / self.view.bounds.size.height);
     GLKMatrix4 projectionMatrix = GLKMatrix4MakePerspective(GLKMathDegreesToRadians(65.0f), aspect, 4.1f, 10.0f);
     //float basezoom = 0.75;
@@ -492,6 +546,7 @@ float zoom = 1.0f;
             
             ++verts;
         }
+        //JRW: bad access :(
         glBufferData(GL_ARRAY_BUFFER, sizeof(Vertex) * mesh->mNumVertices, verts, GL_STATIC_DRAW);
         
         //glUnmapBufferARB(GL_ARRAY_BUFFER_ARB); //invalidates verts
@@ -586,9 +641,9 @@ float zoom = 1.0f;
         glGenVertexArraysOES(1, &vaoHandle);
         glBindVertexArrayOES(vaoHandle);
         
-        //JRW: why a I binding AGAIN here? I already did above!
         glBindBuffer(GL_ARRAY_BUFFER, meshHelper.vertexBuffer);
         
+        //JRW: enableClientState+NormalPointer+Color+Text maybe all should become glEnableVertexAttribArray and glVertexAttribPointer calls
         glEnableClientState(GL_NORMAL_ARRAY);
         
         glNormalPointer(GL_FLOAT, sizeof(Vertex), BUFFER_OFFSET(12));
@@ -707,24 +762,6 @@ float zoom = 1.0f;
     
     //ARC :) : [modelMeshes release];
     modelMeshes = nil;
-}
-
-- (void) drawMeshes
-{
-    for(MeshHelper* helper in modelMeshes)
-    {
-        // Set up meterial state.
-        //glCallList(helper.displayList);  
-        glBindBuffer(GL_ARRAY_BUFFER, helper.vertexBuffer);
-        glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, helper.indexBuffer);
-        
-        glEnableVertexAttribArray(GLKVertexAttribPosition);
-        glVertexAttribPointer(GLKVertexAttribPosition, 3, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, vPosition));
-        glEnableVertexAttribArray(GLKVertexAttribColor);
-        glVertexAttribPointer(GLKVertexAttribColor, 4, GL_FLOAT, GL_FALSE, sizeof(Vertex), (const GLvoid *) offsetof(Vertex, dColorDiffuse));
-        
-        glDrawElements(GL_TRIANGLES, helper.numIndices, GL_UNSIGNED_INT, 0);
-    }
 }
 
 //called only from loadModel
